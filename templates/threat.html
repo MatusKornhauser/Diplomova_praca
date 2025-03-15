@@ -1,0 +1,769 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="en">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>Image and Video Processor</title>-->
+<!--    <style>-->
+<!--        body {-->
+<!--            font-family: Arial, sans-serif;-->
+<!--            display: flex;-->
+<!--            justify-content: center;-->
+<!--            align-items: flex-start;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        .container {-->
+<!--            display: flex;-->
+<!--            width: 100%;-->
+<!--        }-->
+<!--        .left-panel {-->
+<!--            flex: 1;-->
+<!--            padding: 20px;-->
+<!--            border-right: 2px solid #ddd;-->
+<!--        }-->
+<!--        .right-panel {-->
+<!--            flex: 2;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        .image-preview {-->
+<!--            max-width: 100%;-->
+<!--            max-height: 300px;-->
+<!--        }-->
+<!--        .btn {-->
+<!--            padding: 10px 20px;-->
+<!--            margin: 10px;-->
+<!--            font-size: 16px;-->
+<!--            cursor: pointer;-->
+<!--            border: none;-->
+<!--            background-color: #4CAF50;-->
+<!--            color: white;-->
+<!--            border-radius: 5px;-->
+<!--        }-->
+<!--        .btn:hover {-->
+<!--            background-color: #45a049;-->
+<!--        }-->
+
+<!--        .dynamic-input {-->
+<!--            margin: 10px 0;-->
+<!--        }-->
+
+<!--        .task-container {-->
+<!--            margin-top: 20px;-->
+<!--        }-->
+
+<!--        .task {-->
+<!--            margin-bottom: 15px;-->
+<!--            padding: 10px;-->
+<!--            border: 1px solid #ddd;-->
+<!--            border-radius: 5px;-->
+<!--        }-->
+
+<!--        .task button {-->
+<!--            background-color: #f44336;-->
+<!--        }-->
+<!--        .task button:hover {-->
+<!--            background-color: #d32f2f;-->
+<!--        }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <div class="container">-->
+<!--        <div class="left-panel">-->
+<!--            <h2>Uploaded File</h2>-->
+<!--            {% if filename %}-->
+<!--                {% if filename.endswith(('mp4', 'mov', 'avi')) %}-->
+<!--                    <video class="image-preview" controls>-->
+<!--                        <source src="{{ url_for('static', filename='uploads/' + filename) }}" type="video/mp4">-->
+<!--                        Your browser does not support the video tag.-->
+<!--                    </video>-->
+<!--                {% else %}-->
+<!--                    <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="image-preview" alt="Uploaded Image">-->
+<!--                {% endif %}-->
+<!--            {% else %}-->
+<!--                <p>No file uploaded.</p>-->
+<!--                <form method="POST" enctype="multipart/form-data">-->
+<!--                    <input type="file" name="file" required>-->
+<!--                    <button class="btn" type="submit">Upload</button>-->
+<!--                </form>-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--        <div class="right-panel">-->
+<!--            {% if filename %}-->
+<!--                <h2>Model and Prompt</h2>-->
+<!--                <form method="POST">-->
+<!--                    <input type="hidden" name="filename" value="{{ filename }}">-->
+<!--                    <label for="model">Choose Model:</label>-->
+<!--                    <select id="model" name="model" required onchange="updateTasks()">-->
+<!--                        <option value="paligemma">Paligemma</option>-->
+<!--                        <option value="florence2">Florence2</option>-->
+<!--                    </select>-->
+<!--                    <br><br>-->
+<!--                    <div id="tasks-container">-->
+<!--                        &lt;!&ndash; Dynamically added tasks will go here &ndash;&gt;-->
+<!--                    </div>-->
+<!--                    <button type="button" class="btn" onclick="addTask()">Add Task</button>-->
+<!--                    <br><br>-->
+<!--                    <button class="btn" type="submit">Submit</button>-->
+<!--                </form>-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        let taskCount = 0;-->
+
+<!--        function updateTasks() {-->
+<!--            const model = document.getElementById("model").value;-->
+<!--            // You can use this function to dynamically update options for "Prompt Type"-->
+<!--        }-->
+
+<!--        function addTask() {-->
+<!--            taskCount++;-->
+
+<!--            const taskContainer = document.getElementById('tasks-container');-->
+
+<!--            // Create a new task element-->
+<!--            const taskDiv = document.createElement('div');-->
+<!--            taskDiv.classList.add('task');-->
+<!--            taskDiv.id = `task-${taskCount}`;-->
+
+<!--            // Create the model dropdown for each task-->
+<!--            const taskModelLabel = document.createElement('label');-->
+<!--            taskModelLabel.setAttribute('for', `prompt_type-${taskCount}`);-->
+<!--            taskModelLabel.innerText = `Choose Prompt Type for Task ${taskCount}:`;-->
+
+<!--            const taskModelSelect = document.createElement('select');-->
+<!--            taskModelSelect.setAttribute('id', `prompt_type-${taskCount}`);-->
+<!--            taskModelSelect.setAttribute('name', `prompt_type-${taskCount}`);-->
+<!--            taskModelSelect.required = true;-->
+<!--            taskModelSelect.innerHTML = `-->
+<!--                <option value="detect">Detect</option>-->
+<!--                <option value="answer">Answer</option>-->
+<!--                <option value="caption">Caption</option>-->
+<!--                <option value="describe">Describe</option>-->
+<!--            `;-->
+
+<!--            // Create the text input for each task-->
+<!--            const promptTextLabel = document.createElement('label');-->
+<!--            promptTextLabel.setAttribute('for', `prompt_text-${taskCount}`);-->
+<!--            promptTextLabel.innerText = `Enter Prompt Text for Task ${taskCount}:`;-->
+
+<!--            const promptTextInput = document.createElement('input');-->
+<!--            promptTextInput.setAttribute('type', 'text');-->
+<!--            promptTextInput.setAttribute('id', `prompt_text-${taskCount}`);-->
+<!--            promptTextInput.setAttribute('name', `prompt_text-${taskCount}`);-->
+
+<!--            // Create a remove button for each task-->
+<!--            const removeButton = document.createElement('button');-->
+<!--            removeButton.setAttribute('type', 'button');-->
+<!--            removeButton.classList.add('btn');-->
+<!--            removeButton.style.backgroundColor = '#f44336';-->
+<!--            removeButton.innerText = 'Remove Task';-->
+<!--            removeButton.onclick = () => removeTask(taskDiv);-->
+
+<!--            // Append all elements to the task container-->
+<!--            taskDiv.appendChild(taskModelLabel);-->
+<!--            taskDiv.appendChild(taskModelSelect);-->
+<!--            taskDiv.appendChild(document.createElement('br'));-->
+<!--            taskDiv.appendChild(promptTextLabel);-->
+<!--            taskDiv.appendChild(promptTextInput);-->
+<!--            taskDiv.appendChild(document.createElement('br'));-->
+<!--            taskDiv.appendChild(removeButton);-->
+
+<!--            // Append the task div to the container-->
+<!--            taskContainer.appendChild(taskDiv);-->
+<!--        }-->
+
+<!--        function removeTask(taskDiv) {-->
+<!--            // Remove the task div from the DOM-->
+<!--            taskDiv.remove();-->
+<!--        }-->
+
+<!--        // Initialize the page-->
+<!--        document.addEventListener("DOMContentLoaded", updateTasks);-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
+
+
+<!--<!DOCTYPE html>-->
+<!--<html lang="en">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>Image and Video Processor</title>-->
+<!--    <style>-->
+<!--        body {-->
+<!--            font-family: Arial, sans-serif;-->
+<!--            display: flex;-->
+<!--            justify-content: center;-->
+<!--            align-items: flex-start;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        .container {-->
+<!--            display: flex;-->
+<!--            width: 100%;-->
+<!--        }-->
+<!--        .left-panel {-->
+<!--            flex: 1;-->
+<!--            padding: 20px;-->
+<!--            border-right: 2px solid #ddd;-->
+<!--        }-->
+<!--        .right-panel {-->
+<!--            flex: 2;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        .image-preview {-->
+<!--            max-width: 100%;-->
+<!--            max-height: 300px;-->
+<!--        }-->
+<!--        .btn {-->
+<!--            padding: 10px 20px;-->
+<!--            margin: 10px;-->
+<!--            font-size: 16px;-->
+<!--            cursor: pointer;-->
+<!--            border: none;-->
+<!--            background-color: #4CAF50;-->
+<!--            color: white;-->
+<!--            border-radius: 5px;-->
+<!--        }-->
+<!--        .btn:hover {-->
+<!--            background-color: #45a049;-->
+<!--        }-->
+<!--        .prompt-container {-->
+<!--            margin-bottom: 10px;-->
+<!--        }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <div class="container">-->
+<!--        <div class="left-panel">-->
+<!--            <h2>Uploaded File</h2>-->
+<!--            {% if filename %}-->
+<!--                {% if filename.endswith(('mp4', 'mov', 'avi')) %}-->
+<!--                    <video class="image-preview" controls>-->
+<!--                        <source src="{{ url_for('static', filename='uploads/' + filename) }}" type="video/mp4">-->
+<!--                        Your browser does not support the video tag.-->
+<!--                    </video>-->
+<!--                {% else %}-->
+<!--                    <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="image-preview" alt="Uploaded Image">-->
+<!--                {% endif %}-->
+<!--            {% else %}-->
+<!--                <p>No file uploaded.</p>-->
+<!--                <form method="POST" enctype="multipart/form-data">-->
+<!--                    <input type="file" name="file" required>-->
+<!--                    <button class="btn" type="submit">Upload</button>-->
+<!--                </form>-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--        <div class="right-panel">-->
+<!--            {% if filename %}-->
+<!--                <h2>Model and Prompt</h2>-->
+<!--                <form method="POST" id="taskForm">-->
+<!--                    <input type="hidden" name="filename" value="{{ filename }}">-->
+<!--                    <label for="model">Choose Model:</label>-->
+<!--                    <select id="model" name="model" required onchange="updateTasks()">-->
+<!--                        <option value="paligemma">Paligemma</option>-->
+<!--                        <option value="florence2">Florence2</option>-->
+<!--                    </select>-->
+<!--                    <br><br>-->
+<!--                    <div id="prompt-container">-->
+<!--                        <div class="prompt-container" id="task-1">-->
+<!--                            <label for="prompt_type-1">Choose Prompt Type:</label>-->
+<!--                            <select id="prompt_type-1" name="prompt_type-1" required>-->
+<!--                                &lt;!&ndash; Options will be dynamically updated &ndash;&gt;-->
+<!--                            </select>-->
+<!--                            <br><br>-->
+<!--                            <label for="prompt_text-1">Enter Prompt Text:</label>-->
+<!--                            <input type="text" id="prompt_text-1" name="prompt_text-1">-->
+<!--                            <br><br>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                    <button class="btn" type="button" id="add-task-btn">Add Task</button>-->
+<!--                    <br><br>-->
+<!--                    <button class="btn" type="submit">Submit</button>-->
+<!--                </form>-->
+<!--                {% if result %}-->
+<!--                    <h3>Result</h3>-->
+<!--                    {% if model == "paligemma" %}-->
+<!--                        {% if result.type == "text" %}-->
+<!--                            <p>{{ result.content }}</p>-->
+<!--                        {% elif result.type == "image" %}-->
+<!--                            <img src="{{ url_for('static', filename=result.filename) }}" class="image-preview" alt="Processed Image">-->
+<!--                        {% endif %}-->
+<!--                    {% elif model == "florence2" %}-->
+<!--                        {% if result.type == "text" %}-->
+<!--                            <p>{{ result.content }}</p>-->
+<!--                        {% elif result.type == "image" %}-->
+<!--                           <img src="{{ url_for('static', filename=result.filename) }}" class="image-preview" alt="Processed Image">-->
+<!--                        {% endif %}-->
+<!--                    {% else %}-->
+<!--                        <p>Unsupported model selected.</p>-->
+<!--                    {% endif %}-->
+<!--                {% endif %}-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        let taskCount = 1;-->
+
+<!--        // Function to update the prompt types based on model selection-->
+<!--        function updateTasks() {-->
+<!--            const model = document.getElementById("model").value;-->
+<!--            const promptTypeElement = document.getElementById(`prompt_type-${taskCount}`);-->
+
+<!--            // Clear existing options-->
+<!--            promptTypeElement.innerHTML = "";-->
+
+<!--            if (model === "paligemma") {-->
+<!--                promptTypeElement.innerHTML = `-->
+<!--                    <option value="detect">Detect</option>-->
+<!--                    <option value="answer">Answer</option>-->
+<!--                    <option value="caption">Caption</option>-->
+<!--                    <option value="describe">Describe</option>-->
+<!--                `;-->
+<!--            } else if (model === "florence2") {-->
+<!--                promptTypeElement.innerHTML = `-->
+<!--                    <option value="OD">Detect</option>-->
+<!--                    <option value="VQA">Answer</option>-->
+<!--                    <option value="CAPTION">Caption</option>-->
+<!--                    <option value="MORE_DETAILED_CAPTION">Describe</option>-->
+<!--                `;-->
+<!--            }-->
+<!--        }-->
+
+<!--        // Function to add a new task-->
+<!--        document.getElementById("add-task-btn").onclick = function() {-->
+<!--            taskCount++;-->
+<!--            const newTaskHTML = `-->
+<!--                <div class="prompt-container" id="task-${taskCount}">-->
+<!--                    <label for="prompt_type-${taskCount}">Choose Prompt Type:</label>-->
+<!--                    <select id="prompt_type-${taskCount}" name="prompt_type-${taskCount}" required>-->
+<!--                        &lt;!&ndash; Options will be dynamically updated &ndash;&gt;-->
+<!--                    </select>-->
+<!--                    <br><br>-->
+<!--                    <label for="prompt_text-${taskCount}">Enter Prompt Text:</label>-->
+<!--                    <input type="text" id="prompt_text-${taskCount}" name="prompt_text-${taskCount}">-->
+<!--                    <br><br>-->
+<!--                </div>-->
+<!--            `;-->
+<!--            document.getElementById("prompt-container").insertAdjacentHTML('beforeend', newTaskHTML);-->
+<!--            updateTasks(); // Update the prompt types for the new task-->
+<!--        };-->
+
+<!--        // Initialize tasks on page load-->
+<!--        document.addEventListener("DOMContentLoaded", updateTasks);-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
+
+<!--TOTO JE FUNKCNY KOD KEBY DACO TAK TENTO DOLE-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image and Video Processor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+        }
+        .left-panel {
+            flex: 1;
+            padding: 20px;
+            border-right: 2px solid #ddd;
+        }
+        .right-panel {
+            flex: 2;
+            padding: 20px;
+        }
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+        }
+         .btn {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h2>Upload ONLY VIDEO</h2>
+            {% if filename %}
+                {% if filename.endswith(('mp4', 'mov', 'avi')) %}
+                    <video class="image-preview" controls>
+                        <source src="{{ url_for('static', filename='uploads/' + filename) }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                {% else %}
+                    <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="image-preview" alt="Uploaded Image">
+                {% endif %}
+            {% else %}
+                <p>No file uploaded.</p>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="file" name="file" required>
+                    <button class="btn" type="submit">Upload</button>
+                </form>
+            {% endif %}
+            {% if timeline_images %}
+                <h3>Visualization of Results</h3>
+                {% for img in timeline_images %}
+                    <img src="{{ img }}" alt="Timeline Visualization" class="image-preview">
+                    {% if loop.last %}
+                        <p><strong>AllTimeline</strong></p>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+
+<!--            {% if timeline_images %}-->
+<!--                <h3>Visualization of Results</h3>-->
+<!--                {% for img in timeline_images %}-->
+<!--                    <img src="{{ img }}" alt="Timeline Visualization" class="image-preview">-->
+<!--                {% endfor %}-->
+<!--            {% endif %}-->
+        </div>
+        <div class="right-panel">
+            {% if filename %}
+                <h2>Model and Prompt</h2>
+                <form method="POST">
+                    <input type="hidden" name="filename" value="{{ filename }}">
+                    <label for="model">Choose Model:</label>
+                    <select id="model" name="model" required onchange="updateTasks()">
+                        <option value="paligemma">Paligemma</option>
+                        <option value="florence2">Florence2</option>
+                    </select>
+                    <br><br>
+                    <!-- Dynamicky pridávané prompty -->
+                    <div id="prompts-container">
+                        <div class="prompt">
+                            <label for="prompt_type-1">Choose Prompt Type:</label>
+                            <select id="prompt_type-1" name="prompt_type-1" required>
+                                <!-- Options sa naplnia pomocou JavaScriptu -->
+                            </select>
+                            <br><br>
+                            <label for="prompt_text-1">Enter Prompt Text:</label>
+                            <input type="text" id="prompt_text-1" name="prompt_text-1">
+                            <br><br>
+                        </div>
+                    </div>
+                    <button type="button" class="btn" id="add-prompt-btn">Add Another Prompt</button>
+                    <br><br>
+                    <button class="btn" type="submit">Submit</button>
+                </form>
+<!--                {% if timeline_images %}-->
+<!--                    <h3>Visualization of Results</h3>-->
+<!--                    {% for img in timeline_images %}-->
+<!--                        <img src="{{ img }}" alt="Timeline Visualization" class="image-preview">-->
+<!--                    {% endfor %}-->
+<!--                {% endif %}-->
+
+<!--                {% if result %}-->
+<!--                    <h3>Results</h3>-->
+<!--                    {% for res in result %}-->
+<!--                        {% if res.type == "text" %}-->
+<!--                            <p>{{ res.content }}</p>-->
+<!--                        {% elif res.type == "image" %}-->
+<!--                            <img src="{{ url_for('static', filename=res.filename) }}" class="image-preview" alt="Processed Image">-->
+<!--                        {% endif %}-->
+<!--                    {% endfor %}-->
+<!--                {% endif %}-->
+<!--                {% if frame_results %}-->
+<!--                    <h3>Frame Results</h3>-->
+<!--                    <ul>-->
+<!--                        {% for result in frame_results %}-->
+<!--                            <p>{{ result }}</p>-->
+<!--                        {% endfor %}-->
+<!--                    </ul>-->
+<!--                {% endif %}-->
+                    {% if frame_results %}
+                        <h3>Frame Results</h3>
+                        {% if model == "paligemma" %}
+                            <ul>
+                                {% for result in frame_results %}
+                                    <p>{{result}}</p>
+                                {% endfor %}
+                            </ul>
+                            {% elif model == "florence2" %}
+                                {% for result in frame_results %}
+                                    {% if result.get('\u003cCAPTION\u003e') %}
+                                        <p>{{ result.get('\u003cCAPTION\u003e') }}</p>
+                                    {% elif result.get('<VQA> + ' ~ prompt_text) %}
+                                        <p>{{ result.get('<VQA> + ' ~ prompt_text) }}</p>
+                                    {% elif result.get('\u003cOD\u003e') %}
+                                        <p>{{ result.get('\u003cOD\u003e') }}</p>
+                                    {% elif result.get('\u003cMORE_DETAILED_CAPTION\u003e') %}
+                                        <p>{{ result.get('\u003cMORE_DETAILED_CAPTION\u003e') }}</p>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                            <p>Unsupported model selected.</p>
+                        {% endif %}
+                    {% endif %}
+                    {% if result_vqa %}
+                        <h3>Frame Results</h3>
+                        <ul>
+                            {% for result in result_vqa %}
+                                <p>{{ result }}</p>
+                            {% endfor %}
+                    {% endif %}
+                    {% if all_classify %}
+                        {% set classify_data = all_classify[0] %}
+
+                        <h3>Classification Results</h3>
+                        <table border="1">
+                            <tr>
+                                <th>Label</th>
+                                <th>Score</th>
+                            </tr>
+                            {% for i in range(classify_data['labels']|length) %}
+                            <tr>
+                                <td>{{ classify_data['labels'][i] }}</td>
+                                <td>{{ classify_data['scores'][i] | round(3) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </table>
+                    {% endif %}
+            {% endif %}
+
+        </div>
+    </div>
+
+    <script>
+        let promptCount = 1;
+
+        function updateTasks() {
+            const model = document.getElementById("model").value;
+            const promptType = document.getElementById(`prompt_type-${promptCount}`);
+
+            // Clear existing options
+            promptType.innerHTML = "";
+
+            if (model === "paligemma") {
+                promptType.innerHTML = `
+                    <option value="detect">Detect</option>
+                    <option value="answer">Answer</option>
+                    <option value="caption">Caption</option>
+                    <option value="describe">Describe</option>
+                `;
+            } else if (model === "florence2") {
+                promptType.innerHTML = `
+                    <option value="CAPTION_TO_PHRASE_GROUNDING">Detect</option>
+                    <option value="VQA">Answer</option>
+                    <option value="CAPTION">Caption</option>
+                    <option value="MORE_DETAILED_CAPTION">Describe</option>
+                `;
+            }
+        }
+
+        // Add another prompt when the button is clicked
+        document.getElementById("add-prompt-btn").addEventListener("click", function() {
+            promptCount++;
+            const container = document.getElementById("prompts-container");
+            const newPrompt = document.createElement("div");
+            newPrompt.classList.add("prompt");
+            newPrompt.innerHTML = `
+                <label for="prompt_type-${promptCount}">Choose Prompt Type:</label>
+                <select id="prompt_type-${promptCount}" name="prompt_type-${promptCount}" required>
+                    <!-- Options will be populated dynamically -->
+                </select>
+                <br><br>
+                <label for="prompt_text-${promptCount}">Enter Prompt Text:</label>
+                <input type="text" id="prompt_text-${promptCount}" name="prompt_text-${promptCount}">
+                <br><br>
+            `;
+            container.appendChild(newPrompt);
+            updateTasks();  // Update prompt types based on the selected model
+        });
+
+        // Initialize tasks on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            updateTasks();
+        });
+    </script>
+</body>
+</html>
+
+<!--TOTO JE DALSI S TALCIDLOM NA ZMAZANIE funkcny-->
+<!--<!DOCTYPE html>-->
+<!--<html lang="en">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>Image and Video Processor</title>-->
+<!--    <style>-->
+<!--        body {-->
+<!--            font-family: Arial, sans-serif;-->
+<!--            display: flex;-->
+<!--            justify-content: center;-->
+<!--            align-items: flex-start;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        .container {-->
+<!--            display: flex;-->
+<!--            width: 100%;-->
+<!--        }-->
+<!--        .left-panel {-->
+<!--            flex: 1;-->
+<!--            padding: 20px;-->
+<!--            border-right: 2px solid #ddd;-->
+<!--        }-->
+<!--        .right-panel {-->
+<!--            flex: 2;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        .image-preview {-->
+<!--            max-width: 100%;-->
+<!--            max-height: 300px;-->
+<!--        }-->
+<!--         .btn {-->
+<!--            padding: 10px 20px;-->
+<!--            margin: 10px;-->
+<!--            font-size: 16px;-->
+<!--            cursor: pointer;-->
+<!--            border: none;-->
+<!--            background-color: #4CAF50;-->
+<!--            color: white;-->
+<!--            border-radius: 5px;-->
+<!--        }-->
+<!--        .btn:hover {-->
+<!--            background-color: #45a049;-->
+<!--        }-->
+<!--        .remove-btn {-->
+<!--            background-color: #f44336;-->
+<!--        }-->
+<!--        .remove-btn:hover {-->
+<!--            background-color: #d32f2f;-->
+<!--        }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <div class="container">-->
+<!--        <div class="left-panel">-->
+<!--            <h2>Uploaded File</h2>-->
+<!--            {% if filename %}-->
+<!--                {% if filename.endswith(('mp4', 'mov', 'avi')) %}-->
+<!--                    <video class="image-preview" controls>-->
+<!--                        <source src="{{ url_for('static', filename='uploads/' + filename) }}" type="video/mp4">-->
+<!--                        Your browser does not support the video tag.-->
+<!--                    </video>-->
+<!--                {% else %}-->
+<!--                    <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="image-preview" alt="Uploaded Image">-->
+<!--                {% endif %}-->
+<!--            {% else %}-->
+<!--                <p>No file uploaded.</p>-->
+<!--                <form method="POST" enctype="multipart/form-data">-->
+<!--                    <input type="file" name="file" required>-->
+<!--                    <button class="btn" type="submit">Upload</button>-->
+<!--                </form>-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--        <div class="right-panel">-->
+<!--            {% if filename %}-->
+<!--                <h2>Model and Prompt</h2>-->
+<!--                <form method="POST">-->
+<!--                    <input type="hidden" name="filename" value="{{ filename }}">-->
+<!--                    <label for="model">Choose Model:</label>-->
+<!--                    <select id="model" name="model" required onchange="updateTasks()">-->
+<!--                        <option value="paligemma">Paligemma</option>-->
+<!--                        <option value="florence2">Florence2</option>-->
+<!--                    </select>-->
+<!--                    <br><br>-->
+<!--                    <div id="prompts-container">-->
+<!--                        <div class="prompt" id="prompt-1">-->
+<!--                            <label for="prompt_type-1">Choose Prompt Type:</label>-->
+<!--                            <select id="prompt_type-1" name="prompt_type-1" required></select>-->
+<!--                            <br><br>-->
+<!--                            <label for="prompt_text-1">Enter Prompt Text:</label>-->
+<!--                            <input type="text" id="prompt_text-1" name="prompt_text-1" required>-->
+<!--                            <br><br>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                    <button type="button" class="btn" id="add-prompt-btn">Add Another Prompt</button>-->
+<!--                    <br><br>-->
+<!--                    <button class="btn" type="submit">Submit</button>-->
+<!--                </form>-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        let promptCount = 1;-->
+
+<!--        function updateTasks() {-->
+<!--            const model = document.getElementById("model").value;-->
+<!--            document.querySelectorAll("[id^='prompt_type-']").forEach(promptType => {-->
+<!--                promptType.innerHTML = "";-->
+<!--                if (model === "paligemma") {-->
+<!--                    promptType.innerHTML = `-->
+<!--                        <option value="detect">Detect</option>-->
+<!--                        <option value="answer">Answer</option>-->
+<!--                    `;-->
+<!--                } else if (model === "florence2") {-->
+<!--                    promptType.innerHTML = `-->
+<!--                        <option value="CAPTION_TO_PHRASE_GROUNDING">Detect</option>-->
+<!--                        <option value="VQA">Answer</option>-->
+<!--                    `;-->
+<!--                }-->
+<!--            });-->
+<!--        }-->
+
+<!--        document.getElementById("add-prompt-btn").addEventListener("click", function() {-->
+<!--            promptCount++;-->
+<!--            const container = document.getElementById("prompts-container");-->
+<!--            const newPrompt = document.createElement("div");-->
+<!--            newPrompt.classList.add("prompt");-->
+<!--            newPrompt.id = `prompt-${promptCount}`;-->
+<!--            newPrompt.innerHTML = `-->
+<!--                <label for="prompt_type-${promptCount}">Choose Prompt Type:</label>-->
+<!--                <select id="prompt_type-${promptCount}" name="prompt_type-${promptCount}" required></select>-->
+<!--                <br><br>-->
+<!--                <label for="prompt_text-${promptCount}">Enter Prompt Text:</label>-->
+<!--                <input type="text" id="prompt_text-${promptCount}" name="prompt_text-${promptCount}" required>-->
+<!--                <br><br>-->
+<!--                <button type="button" class="btn remove-btn" onclick="removePrompt(${promptCount})">Remove</button>-->
+<!--                <br><br>-->
+<!--            `;-->
+<!--            container.appendChild(newPrompt);-->
+<!--            updateTasks();-->
+<!--        });-->
+
+<!--        function removePrompt(id) {-->
+<!--            const promptElement = document.getElementById(`prompt-${id}`);-->
+<!--            if (promptElement) {-->
+<!--                promptElement.remove();-->
+<!--            }-->
+<!--        }-->
+
+<!--        document.addEventListener("DOMContentLoaded", function() {-->
+<!--            updateTasks();-->
+<!--        });-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
