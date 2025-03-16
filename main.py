@@ -1,6 +1,6 @@
 import json
 
-from flask import Flask, render_template, request, jsonify, url_for
+from flask import Flask, render_template, request, jsonify, url_for, redirect
 import os
 import cv2
 import torch
@@ -10,6 +10,9 @@ import re
 import matplotlib.pyplot as plt
 from matplotlib import patches
 import matplotlib
+
+from interaktivnaos import timeline
+
 matplotlib.use('Agg') # Pre použitie Matplotlib bez GUI
 from transformers import AutoModelForCausalLM, AutoProcessor, AutoConfig, CLIPModel, CLIPProcessor
 from werkzeug.utils import secure_filename
@@ -59,29 +62,45 @@ paligemma_model = PaliGemmaForConditionalGeneration.from_pretrained(
 paligemma_processor = PaliProcessor.from_pretrained("paligemma")
 paligemma_size = (224, 224)
 
+#paligemma ft setup
+paligemmaFT_model = PaliGemmaForConditionalGeneration.from_pretrained(
+    "paligemma", torch_dtype=torch.bfloat16, device_map="cuda:0", revision="bfloat16"
+).eval()
+paligemmaFT_processor = PaliProcessor.from_pretrained("paligemma")
+MODEL_PATH = "paligemma-weights.pth"  # Tvoj súbor
+paligemmaFT_model.load_state_dict(torch.load("paligemma-weights.pth"), strict=False)
+
+
+#florence2 ft setup
+
+florence2modelFT= AutoModelForCausalLM.from_pretrained("allmodel", trust_remote_code=True, torch_dtype='auto').eval().cuda()
+florence2processorFT = AutoProcessor.from_pretrained("allmodel", trust_remote_code=True)
+
+
 # Florence2 Model Setup
-try:
-    config = AutoConfig.from_pretrained("prithivMLmods/Florence-2-VLM-Doc-VQA", trust_remote_code=True)
-    if config.vision_config.model_type != "davit":
-        print("Warning: Model is not using DaViT as vision model. Adjusting configuration.")
-        config.vision_config.model_type = "davit"  # Explicitne nastaviť DaViT
-except Exception as e:
-    print(f"Error loading configuration: {e}")
-    exit(1)
-
-try:
-    model = AutoModelForCausalLM.from_pretrained(
-        "prithivMLmods/Florence-2-VLM-Doc-VQA",
-        config=config,
-        trust_remote_code=True
-        , torch_dtype='auto').eval().cuda()
-
-    model = model.half()
-    processor = AutoProcessor.from_pretrained("prithivMLmods/Florence-2-VLM-Doc-VQA", trust_remote_code=True)
-except Exception as e:
-    print(f"Error loading model or processor: {e}")
-    exit(1)
-
+# try:
+#     config = AutoConfig.from_pretrained("prithivMLmods/Florence-2-VLM-Doc-VQA", trust_remote_code=True)
+#     if config.vision_config.model_type != "davit":
+#         print("Warning: Model is not using DaViT as vision model. Adjusting configuration.")
+#         config.vision_config.model_type = "davit"  # Explicitne nastaviť DaViT
+# except Exception as e:
+#     print(f"Error loading configuration: {e}")
+#     exit(1)
+#
+# try:
+#     model = AutoModelForCausalLM.from_pretrained(
+#         "prithivMLmods/Florence-2-VLM-Doc-VQA",
+#         config=config,
+#         trust_remote_code=True
+#         , torch_dtype='auto').eval().cuda()
+#
+#     model = model.half()
+#     processor = AutoProcessor.from_pretrained("prithivMLmods/Florence-2-VLM-Doc-VQA", trust_remote_code=True)
+# except Exception as e:
+#     print(f"Error loading model or processor: {e}")
+#     exit(1)
+model= AutoModelForCausalLM.from_pretrained("microsoft/Florence-2-base-ft", trust_remote_code=True, torch_dtype='auto').eval().cuda()
+processor = AutoProcessor.from_pretrained("microsoft/Florence-2-base-ft", trust_remote_code=True)
 
 
 # try:
@@ -249,6 +268,26 @@ def run_example(image, task_prompt, text_input=None):
     )
     return parsed_answer
 
+def run_exampleFT(image, task_prompt, text_input=None):
+    prompt = task_prompt if text_input is None else task_prompt + text_input
+    inputs = florence2processorFT(text=prompt, images=image, return_tensors="pt").to('cuda', torch.float16)
+    generated_ids = florence2modelFT.generate(
+        input_ids=inputs["input_ids"].cuda(),
+        pixel_values=inputs["pixel_values"].cuda(),
+        max_new_tokens=2056,
+        early_stopping=False,
+        do_sample=False,
+        repetition_penalty=1.2,  # Menej opakovaní slov
+        num_beams=3,
+    )
+    generated_text = florence2processorFT.batch_decode(generated_ids, skip_special_tokens=False)[0]
+    parsed_answer = florence2processorFT.post_process_generation(
+        generated_text,
+        task=task_prompt,
+        image_size=(image.width, image.height)
+    )
+    return parsed_answer
+
 def process_video(video_path):
     cap = cv2.VideoCapture(video_path)
     frames = []
@@ -293,6 +332,13 @@ def run_paligemma(image, prompt):
         return {"type": "image", "filename": output_path}
     else:
         return {"type": "text", "content": decoded}
+
+def run_paligemmaFT_timeline(image, prompt):
+    model_inputs = paligemmaFT_processor(text=prompt, images=image, return_tensors="pt").to("cuda")
+    input_len = model_inputs["input_ids"].shape[-1]
+    generation = paligemmaFT_model.generate(**model_inputs, max_new_tokens=100, do_sample=False,num_beams=3)
+    decoded = paligemmaFT_processor.decode(generation[0][input_len:], skip_special_tokens=False)
+    return  decoded
 
 def run_paligemma_timeline(image, prompt):
     model_inputs = paligemma_processor(text=prompt, images=image, return_tensors="pt").to("cuda")
@@ -605,6 +651,11 @@ def threat():
     all_classify = []
     classify = []
     result_vqa = []
+    timeline_prompts = []
+    prompt_type = None
+    prompt_text = None
+    all_timelines_prompt = []
+    timeline_all=[]
     if request.method == 'POST':
         if 'file' in request.files:
             file = request.files['file']
@@ -696,15 +747,66 @@ def threat():
                             #     print("som tu MORE")
                             #     print(result_video)
                             #     classify.append((prompt_type, prompt_text, result_video))
+                        elif model == "paligemmaft":
+                            prompt = f"<image> <bos>{prompt_type}: {prompt_text}"
+                            if prompt_type == "detect":
+                                result = run_paligemmaFT_timeline(frame, prompt)
+                                # print("paligemma detect from video")
+                                result_video = check_for_location_tag(result)
+                                print(result_video)
+                                classify.append((prompt_type, prompt_text, result_video))
+                            else:
+                                result_video = run_paligemmaFT_timeline(frame, prompt)
+                                print(result_video)
+                                result_video = result_video.replace("<eos>", "").strip()
+                                print(result_video)
+                                classify.append((prompt_type, prompt_text, result_video))
+                        elif model == "florence2ft":
+                            # prompt = f"{prompt_type} + {prompt_text}" if prompt_type == "VQA" and "CAPTION_TO_PHRASE_GROUNDING" else f"{prompt_type}"
+                            scores = classify_frames(frames)
+
+                            # Výpočet finálnej kategórie pre celé video
+                            final_label, avg_scores = get_final_label(scores)
+                            if prompt_type == "CAPTION_TO_PHRASE_GROUNDING":
+                                # result = run_example(frame, prompt_type, prompt_text)
+                                result = run_exampleFT(frame, '<CAPTION_TO_PHRASE_GROUNDING>', text_input=prompt_text)
+                                # print(result)
+                                result_video = check_for_location_tag_florence(result)
+                                print(result_video)
+                                classify.append((prompt_type, prompt_text, result_video))
+                            elif prompt_type == "VQA":
+                                result = predict(frame, prompt_text)
+                                print(result)
+                                if result == "yes" or result == "no":
+                                    result_video = check_VQA_timeline(result)
+                                    classify.append((prompt_type, prompt_text, result_video))
+                                else:
+                                    print("som tu VQA")
+                                    print(result_video)
+                                    result_vqa.append(result)
+                                    classify.append((prompt_type, prompt_text, result))
+                            elif prompt_type == "CAPTION":
+                                result_video = run_exampleFT(frame, '<CAPTION>', text_input=prompt_text)
+                                print("som tu caoption")
+                                print(result_video)
+                                classify.append((prompt_type, prompt_text, result_video))
+                            elif prompt_type == "MORE_DETAILED_CAPTION":
+                                result_video = run_exampleFT(frame, '<MORE_DETAILED_CAPTION>', text_input=prompt_text)
+                                print("som tu caoption")
+                                print(result_video)
+                                classify.append((prompt_type, prompt_text, result_video))
                         else:
-                            result_video = "Invalid model selection."
+                            print("Invalid model selection.")
 
                         if prompt_type.strip().lower() in {"vqa", "caption_to_phrase_grounding", "detect", "answer"}:
 
                             if result_video is not None:
                                 print("som v if none")
                                 time_line.append(result_video)
-                            # time_line.append(result_video)
+                                # time_line.append(result_video)
+                            else:
+                                print("som v else")
+                                frame_results.append(result_video)
                         else:
                             print("som v else")
                             frame_results.append(result_video)
@@ -723,6 +825,12 @@ def threat():
                     timeline_images.append(url_for('static', filename=f'results/{img_filename}'))
                     all_timelines.append(time_line)
                     print("som tu")
+                    if prompt_type == "VQA":
+                        prompt_type = "Answer"
+                    elif prompt_type == "CAPTION_TO_PHRASE_GROUNDING":
+                        prompt_type = "Detect"
+                    timeline_prompts.append((prompt_type, prompt_text))
+                    all_timelines_prompt = list(zip(timeline_images, timeline_prompts))
                 prompt_count += 1
             result_string = " ".join([f"{prompt_type} {prompt_text} {result_video}" for
                                       prompt_type, prompt_text, result_video in classify])
@@ -738,8 +846,8 @@ def threat():
             print("som tu")
             combined_timeline = merge_timelines(all_timelines)  # Spojenie osí
             img_combined = visualize_combined_timeline(combined_timeline)
-            timeline_images.append(
-                url_for('static', filename=f'results/{img_combined}'))  # Odošleme na frontend
+            timeline_all.append(url_for('static', filename=f'results/{img_combined}'))  # Odošleme na frontend
+
 
     return render_template('threat.html',
                            filename=filename,
@@ -747,6 +855,9 @@ def threat():
                            model=model,
                            frame_results=frame_results,
                            timeline_images=timeline_images,
+                           timeline_prompts=timeline_prompts,
+                           timeline_all=timeline_all,
+                           all_timelines_prompt=all_timelines_prompt,
                            all_classify=all_classify,
                            result_vqa=result_vqa
                            )
@@ -796,6 +907,9 @@ def visualize_combined_timeline(combined_timeline):
     return img_filename
 
 #TODO: funguje vsetko, zisti na inom videu preco nevyhodnocuje spravne
+
+
+
 
 # @app.route('/detection/threat', methods=['GET', 'POST'])
 # def threat():
@@ -921,5 +1035,5 @@ def visualize_combined_timeline(combined_timeline):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
 

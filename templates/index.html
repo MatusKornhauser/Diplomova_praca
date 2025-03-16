@@ -207,105 +207,272 @@
 <!--</body>-->
 <!--</html>-->
 <!--totootototototoottttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt-->
+<!--<!DOCTYPE html>-->
+<!--<html lang="en">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>Image and Video Processor</title>-->
+<!--    <style>-->
+<!--        body {-->
+<!--            font-family: Arial, sans-serif;-->
+<!--            display: flex;-->
+<!--            justify-content: center;-->
+<!--            align-items: flex-start;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        .container {-->
+<!--            display: flex;-->
+<!--            width: 100%;-->
+<!--        }-->
+<!--        .left-panel {-->
+<!--            flex: 1;-->
+<!--            padding: 20px;-->
+<!--            border-right: 2px solid #ddd;-->
+<!--        }-->
+<!--        .right-panel {-->
+<!--            flex: 2;-->
+<!--            padding: 20px;-->
+<!--        }-->
+<!--        .image-preview {-->
+<!--            max-width: 100%;-->
+<!--            max-height: 300px;-->
+<!--        }-->
+<!--         .btn {-->
+<!--            padding: 10px 20px;-->
+<!--            margin: 10px;-->
+<!--            font-size: 16px;-->
+<!--            cursor: pointer;-->
+<!--            border: none;-->
+<!--            background-color: #4CAF50;-->
+<!--            color: white;-->
+<!--            border-radius: 5px;-->
+<!--        }-->
+<!--        .btn:hover {-->
+<!--            background-color: #45a049;-->
+<!--        }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <div class="container">-->
+<!--        <div class="left-panel">-->
+<!--            <h2>Uploaded File</h2>-->
+<!--            {% if filename %}-->
+<!--                {% if filename.endswith(('mp4', 'mov', 'avi')) %}-->
+<!--                    <video class="image-preview" controls>-->
+<!--                        <source src="{{ url_for('static', filename='uploads/' + filename) }}" type="video/mp4">-->
+<!--                        Your browser does not support the video tag.-->
+<!--                    </video>-->
+<!--                {% else %}-->
+<!--                    <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="image-preview" alt="Uploaded Image">-->
+<!--                {% endif %}-->
+<!--            {% else %}-->
+<!--                <p>No file uploaded.</p>-->
+<!--                <form method="POST" enctype="multipart/form-data">-->
+<!--                    <input type="file" name="file" required>-->
+<!--                    <button class="btn" type="submit">Upload</button>-->
+<!--                </form>-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--        <div class="right-panel">-->
+<!--            {% if filename %}-->
+<!--                <h2>Model and Prompt</h2>-->
+<!--                <form method="POST">-->
+<!--                    <input type="hidden" name="filename" value="{{ filename }}">-->
+<!--                    <label for="model">Choose Model:</label>-->
+<!--                    <select id="model" name="model" required onchange="updateTasks()">-->
+<!--                        <option value="paligemma">Paligemma</option>-->
+<!--                        <option value="florence2">Florence2</option>-->
+<!--                    </select>-->
+<!--                    <br><br>-->
+<!--                    <label for="prompt_type">Choose Prompt Type:</label>-->
+<!--                    <select id="prompt_type" name="prompt_type" required>-->
+<!--                        &lt;!&ndash; Options will be dynamically updated &ndash;&gt;-->
+<!--                    </select>-->
+<!--                    <br><br>-->
+<!--                    <label for="prompt_text">Enter Prompt Text:</label>-->
+<!--                    <input type="text" id="prompt_text" name="prompt_text">-->
+<!--                    <br><br>-->
+<!--                    <button class="btn" type="submit">Submit</button>-->
+<!--                </form>-->
+<!--                {% if result %}-->
+
+<!--                    <h3>Result</h3>-->
+<!--&lt;!&ndash;                        <p>Result type: {{ result.type }}</p>&ndash;&gt;-->
+<!--&lt;!&ndash;&lt;!&ndash;                    <p><strong>Debug Information:</strong></p>&ndash;&gt;&ndash;&gt;-->
+<!--&lt;!&ndash;                        <pre>{{ result | tojson }}</pre> &lt;!&ndash; Debug výpis pre result &ndash;&gt;&ndash;&gt;-->
+<!--                    {% if model == "paligemma" %}-->
+<!--                        {% if result.type == "text" %}-->
+<!--                            <p>{{ result.content }}</p>-->
+<!--                        {% elif result.type == "image" %}-->
+<!--                            <img src="{{ url_for('static', filename=result.filename) }}" class="image-preview" alt="Processed Image">-->
+<!--                        {% endif %}-->
+<!--                    {% elif model == "florence2" %}-->
+<!--                        {% if result.type == "text" %}-->
+<!--                            {% if result.get('\u003cMORE_DETAILED_CAPTION\u003e') %}-->
+<!--                                <p>{{ result['\u003cMORE_DETAILED_CAPTION\u003e'] }}</p>-->
+<!--                            {% elif result.get('\u003cCAPTION\u003e') %}-->
+<!--                                <p>{{ result['\u003cCAPTION\u003e'] }}</p>-->
+<!--                            {% elif result.get('<VQA> + ' + prompt_text) %}-->
+<!--                                <p>{{ result['<VQA> + ' + prompt_text] }}</p>-->
+<!--                            {% elif result.get('\u003cOD\u003e') %}-->
+<!--                                <p>{{ result['\u003cOD\u003e'] }}</p>-->
+<!--                            {% endif %}-->
+<!--                        {% elif result.type == "image" %}-->
+<!--                           <img src="{{ url_for('static', filename=result.filename) }}" class="image-preview" alt="Processed Image">-->
+<!--                        {% endif %}-->
+<!--                    {% else %}-->
+<!--                        <p>Unsupported model selected.</p>-->
+<!--                    {% endif %}-->
+<!--                {% else %}-->
+<!--                {% endif %}-->
+<!--                {% if frame_results %}-->
+<!--                    <h3>Frame Results</h3>-->
+<!--                    {% if model == "paligemma" %}-->
+<!--                        <ul>-->
+<!--                            {% for frame, result in frame_results %}-->
+<!--                                <p>{{ result.content }}</p>-->
+<!--                            {% endfor %}-->
+<!--                        </ul>-->
+<!--                        {% elif model == "florence2" %}-->
+<!--                            {% for frame, result in frame_results %}-->
+<!--                                {% if result.get('\u003cCAPTION\u003e') %}-->
+<!--                                    <p>{{ result.get('\u003cCAPTION\u003e') }}</p>-->
+<!--                                {% elif result.get('<VQA> + ' ~ prompt_text) %}-->
+<!--                                    <p>{{ result.get('<VQA> + ' ~ prompt_text) }}</p>-->
+<!--                                {% elif result.get('\u003cOD\u003e') %}-->
+<!--                                    <p>{{ result.get('\u003cOD\u003e') }}</p>-->
+<!--                                {% elif result.get('\u003cMORE_DETAILED_CAPTION\u003e') %}-->
+<!--                                    <p>{{ result.get('\u003cMORE_DETAILED_CAPTION\u003e') }}</p>-->
+<!--                                {% endif %}-->
+<!--                            {% endfor %}-->
+<!--                        {% else %}-->
+<!--                        <p>Unsupported model selected.</p>-->
+<!--                    {% endif %}-->
+<!--                {% endif %}-->
+<!--                {% if all_classify %}-->
+<!--                        {% set classify_data = all_classify[0] %}-->
+
+<!--                        <h3>Classification Results</h3>-->
+<!--                        <table border="1">-->
+<!--                            <tr>-->
+<!--                                <th>Label</th>-->
+<!--                                <th>Score</th>-->
+<!--                            </tr>-->
+<!--                            {% for i in range(classify_data['labels']|length) %}-->
+<!--                            <tr>-->
+<!--                                <td>{{ classify_data['labels'][i] }}</td>-->
+<!--                                <td>{{ classify_data['scores'][i] | round(3) }}</td>-->
+<!--                            </tr>-->
+<!--                            {% endfor %}-->
+<!--                        </table>-->
+<!--                    {% endif %}-->
+<!--            {% endif %}-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        function updateTasks() {-->
+<!--            const model = document.getElementById("model").value;-->
+<!--            const promptType = document.getElementById("prompt_type");-->
+
+<!--            // Clear existing options-->
+<!--            promptType.innerHTML = "";-->
+
+<!--            if (model === "paligemma") {-->
+<!--                promptType.innerHTML = `-->
+<!--                    <option value="detect">Detect</option>-->
+<!--                    <option value="answer">Answer</option>-->
+<!--                    <option value="caption">Caption</option>-->
+<!--                    <option value="describe">Describe</option>-->
+<!--                `;-->
+<!--            } else if (model === "florence2") {-->
+<!--                promptType.innerHTML = `-->
+<!--                    <option value="OD">Detect</option>-->
+<!--                    <option value="VQA">Answer</option>-->
+<!--                    <option value="CAPTION">Caption</option>-->
+<!--                    <option value="MORE_DETAILED_CAPTION">Describe</option>-->
+<!--                `;-->
+<!--            }-->
+<!--        }-->
+
+<!--        // Initialize tasks on page load-->
+<!--        document.addEventListener("DOMContentLoaded", updateTasks);-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
+<!--&lt;!&ndash;-ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd->-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image and Video Processor</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 20px;
-        }
-        .container {
-            display: flex;
-            width: 100%;
-        }
-        .left-panel {
-            flex: 1;
-            padding: 20px;
-            border-right: 2px solid #ddd;
-        }
-        .right-panel {
-            flex: 2;
-            padding: 20px;
-        }
-        .image-preview {
-            max-width: 100%;
-            max-height: 300px;
-        }
-         .btn {
-            padding: 10px 20px;
-            margin: 10px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            background-color: #4CAF50;
-            color: white;
-            border-radius: 5px;
-        }
-        .btn:hover {
-            background-color: #45a049;
-        }
-    </style>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-    <div class="container">
-        <div class="left-panel">
-            <h2>Uploaded File</h2>
-            {% if filename %}
-                {% if filename.endswith(('mp4', 'mov', 'avi')) %}
-                    <video class="image-preview" controls>
-                        <source src="{{ url_for('static', filename='uploads/' + filename) }}" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
-                {% else %}
-                    <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="image-preview" alt="Uploaded Image">
-                {% endif %}
-            {% else %}
-                <p>No file uploaded.</p>
-                <form method="POST" enctype="multipart/form-data">
-                    <input type="file" name="file" required>
-                    <button class="btn" type="submit">Upload</button>
+<body class="bg-light">
+    <div class="container-fluid my-5">
+        <div class="row">
+            <!-- Left Panel -->
+            <div class="col-md-4 border-end p-4">
+                <h2 class="mb-3">Uploaded File</h2>
+                <form method="POST" enctype="multipart/form-data" id="upload-form">
+                    <input type="file" name="file" class="form-control mb-3" id="file-input" {% if filename %} {% endif %} required>
+                    <button class="btn btn-primary w-100" type="submit" {% if filename %} {% endif %}>Upload</button>
                 </form>
-            {% endif %}
-        </div>
-        <div class="right-panel">
-            {% if filename %}
-                <h2>Model and Prompt</h2>
+                {% if filename %}
+                    <div class="mt-4">
+                        {% if filename.endswith(('mp4', 'mov', 'avi')) %}
+                            <video class="img-fluid" controls>
+                                <source src="{{ url_for('static', filename='uploads/' + filename) }}" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        {% else %}
+                            <img src="{{ url_for('static', filename='uploads/' + filename) }}" class="img-fluid" alt="Uploaded Image">
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Right Panel -->
+            <div class="col-md-8 p-4">
+
+                <h2 class="mb-4">Model and Prompt</h2>
                 <form method="POST">
                     <input type="hidden" name="filename" value="{{ filename }}">
-                    <label for="model">Choose Model:</label>
-                    <select id="model" name="model" required onchange="updateTasks()">
-                        <option value="paligemma">Paligemma</option>
-                        <option value="florence2">Florence2</option>
-                    </select>
-                    <br><br>
-                    <label for="prompt_type">Choose Prompt Type:</label>
-                    <select id="prompt_type" name="prompt_type" required>
-                        <!-- Options will be dynamically updated -->
-                    </select>
-                    <br><br>
-                    <label for="prompt_text">Enter Prompt Text:</label>
-                    <input type="text" id="prompt_text" name="prompt_text">
-                    <br><br>
-                    <button class="btn" type="submit">Submit</button>
-                </form>
-                {% if result %}
 
-                    <h3>Result</h3>
-<!--                        <p>Result type: {{ result.type }}</p>-->
-<!--&lt;!&ndash;                    <p><strong>Debug Information:</strong></p>&ndash;&gt;-->
-<!--                        <pre>{{ result | tojson }}</pre> &lt;!&ndash; Debug výpis pre result &ndash;&gt;-->
+                    <div class="mb-3">
+                        <label for="model" class="form-label">Choose Model:</label>
+                        <select id="model" name="model" class="form-select" required onchange="updateTasks()">
+                            <option value="paligemma">Paligemma</option>
+                            <option value="florence2">Florence2</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="prompt_type" class="form-label">Choose Prompt Type:</label>
+                        <select id="prompt_type" name="prompt_type" class="form-select" required>
+                            <!-- Options will be dynamically updated -->
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="prompt_text" class="form-label">Enter Prompt Text:</label>
+                        <input type="text" id="prompt_text" name="prompt_text" class="form-control">
+                    </div>
+
+                    <button class="btn btn-primary w-100" type="submit" {% if not filename %} disabled {% endif %}>Submit</button>
+                </form>
+
+                {% if result %}
+                    <h3 class="mt-4">Result</h3>
                     {% if model == "paligemma" %}
                         {% if result.type == "text" %}
                             <p>{{ result.content }}</p>
                         {% elif result.type == "image" %}
-                            <img src="{{ url_for('static', filename=result.filename) }}" class="image-preview" alt="Processed Image">
+                            <img src="{{ url_for('static', filename=result.filename) }}" class="img-fluid" alt="Processed Image">
                         {% endif %}
                     {% elif model == "florence2" %}
                         {% if result.type == "text" %}
@@ -319,57 +486,56 @@
                                 <p>{{ result['\u003cOD\u003e'] }}</p>
                             {% endif %}
                         {% elif result.type == "image" %}
-                           <img src="{{ url_for('static', filename=result.filename) }}" class="image-preview" alt="Processed Image">
+                           <img src="{{ url_for('static', filename=result.filename) }}" class="img-fluid" alt="Processed Image">
                         {% endif %}
                     {% else %}
                         <p>Unsupported model selected.</p>
                     {% endif %}
-                {% else %}
                 {% endif %}
+
                 {% if frame_results %}
-                    <h3>Frame Results</h3>
+                    <h3 class="mt-4">Frame Results</h3>
                     {% if model == "paligemma" %}
-                        <ul>
+                        <ul class="list-group">
                             {% for frame, result in frame_results %}
-                                <p>{{ result.content }}</p>
+                                <li class="list-group-item">{{ result.content }}</li>
                             {% endfor %}
                         </ul>
-                        {% elif model == "florence2" %}
-                            {% for frame, result in frame_results %}
-                                {% if result.get('\u003cCAPTION\u003e') %}
-                                    <p>{{ result.get('\u003cCAPTION\u003e') }}</p>
-                                {% elif result.get('<VQA> + ' ~ prompt_text) %}
-                                    <p>{{ result.get('<VQA> + ' ~ prompt_text) }}</p>
-                                {% elif result.get('\u003cOD\u003e') %}
-                                    <p>{{ result.get('\u003cOD\u003e') }}</p>
-                                {% elif result.get('\u003cMORE_DETAILED_CAPTION\u003e') %}
-                                    <p>{{ result.get('\u003cMORE_DETAILED_CAPTION\u003e') }}</p>
-                                {% endif %}
-                            {% endfor %}
-                        {% else %}
+                    {% elif model == "florence2" %}
+                        {% for frame, result in frame_results %}
+                            <p>{{ result.get('\u003cCAPTION\u003e') or result.get('<VQA> + ' ~ prompt_text) or result.get('\u003cOD\u003e') or result.get('\u003cMORE_DETAILED_CAPTION\u003e') }}</p>
+                        {% endfor %}
+                    {% else %}
                         <p>Unsupported model selected.</p>
                     {% endif %}
                 {% endif %}
-                {% if all_classify %}
-                        {% set classify_data = all_classify[0] %}
 
-                        <h3>Classification Results</h3>
-                        <table border="1">
+                {% if all_classify %}
+                    {% set classify_data = all_classify[0] %}
+                    <h3 class="mt-4">Classification Results</h3>
+                    <table class="table table-bordered">
+                        <thead>
                             <tr>
                                 <th>Label</th>
                                 <th>Score</th>
                             </tr>
+                        </thead>
+                        <tbody>
                             {% for i in range(classify_data['labels']|length) %}
-                            <tr>
-                                <td>{{ classify_data['labels'][i] }}</td>
-                                <td>{{ classify_data['scores'][i] | round(3) }}</td>
-                            </tr>
+                                <tr>
+                                    <td>{{ classify_data['labels'][i] }}</td>
+                                    <td>{{ classify_data['scores'][i] | round(3) }}</td>
+                                </tr>
                             {% endfor %}
-                        </table>
-                    {% endif %}
-            {% endif %}
+                        </tbody>
+                    </table>
+                {% endif %}
+            </div>
         </div>
     </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         function updateTasks() {
@@ -401,4 +567,5 @@
     </script>
 </body>
 </html>
-<!--&lt;!&ndash;-ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd->-->
+
+
