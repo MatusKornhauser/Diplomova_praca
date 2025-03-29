@@ -1,6 +1,8 @@
 import json
+import shutil
 
-from flask import Flask, render_template, request, jsonify, url_for, redirect
+from docutils.nodes import caption
+from flask import Flask, render_template, request, jsonify, url_for, redirect, session
 import os
 import cv2
 import torch
@@ -19,6 +21,8 @@ from werkzeug.utils import secure_filename
 
 # Flask setup
 app = Flask(__name__)
+app.secret_key = "secret_key_for_session"  # Kľúč na šifrovanie session
+
 
 UPLOAD_FOLDER = 'static/uploads'
 app.config['RESULT_FOLDER'] = 'static/results'
@@ -31,26 +35,26 @@ import torch
 from transformers import AutoProcessor
 
 # Determine if a GPU is available and set the device accordingly
-device_VQA = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-config_VQA = AutoConfig.from_pretrained("microsoft/Florence-2-base-ft", trust_remote_code=True)
-
-model_VQA  = AutoModelForCausalLM.from_pretrained(
-    "fauzail/Florence-2-VQA",
-    config=config_VQA,
-    trust_remote_code=True
-).to(device_VQA)
-
-processor_VQA  = AutoProcessor.from_pretrained("fauzail/Florence-2-VQA", trust_remote_code=True)
+# device_VQA = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#
+# config_VQA = AutoConfig.from_pretrained("microsoft/Florence-2-large", trust_remote_code=True)
+#
+# model_VQA  = AutoModelForCausalLM.from_pretrained(
+#     "microsoft/Florence-2-large",
+#     config=config_VQA,
+#     trust_remote_code=True
+# ).to(device_VQA)
+# # VivekChauhan06/Florence-2-FT-OK-VQA  "fauzail/Florence-2-VQA",
+# processor_VQA  = AutoProcessor.from_pretrained("microsoft/Florence-2-large", trust_remote_code=True)
 
 def predict(image, question):
     # Predpokladám, že 'processor' a 'model' sú už nainštalované a pripravené
-    inputs = processor_VQA(text=[question], images=[image], return_tensors="pt", padding=True).to(device_VQA)
-    outputs = model_VQA.generate(**inputs, max_length=200)  # Pôvodne býva okolo 20-30, zvýš na 100
+    inputs = processor(text=[question], images=[image], return_tensors="pt", padding=True).to('cuda', torch.float16)
+    outputs = model.generate(**inputs, max_length=200)  # Pôvodne býva okolo 20-30, zvýš na 100
 
 
     # Dekódovanie výsledku
-    answer = processor_VQA.tokenizer.decode(outputs[0], skip_special_tokens=True)
+    answer = processor.tokenizer.decode(outputs[0], skip_special_tokens=True)
     return answer
 
 # Paligemma Model Setup
@@ -70,61 +74,13 @@ paligemmaFT_processor = PaliProcessor.from_pretrained("paligemma")
 MODEL_PATH = "paligemma-weights.pth"  # Tvoj súbor
 paligemmaFT_model.load_state_dict(torch.load("paligemma-weights.pth"), strict=False)
 
-
 #florence2 ft setup
-
 florence2modelFT= AutoModelForCausalLM.from_pretrained("allmodel", trust_remote_code=True, torch_dtype='auto').eval().cuda()
 florence2processorFT = AutoProcessor.from_pretrained("allmodel", trust_remote_code=True)
 
-
-# Florence2 Model Setup
-# try:
-#     config = AutoConfig.from_pretrained("prithivMLmods/Florence-2-VLM-Doc-VQA", trust_remote_code=True)
-#     if config.vision_config.model_type != "davit":
-#         print("Warning: Model is not using DaViT as vision model. Adjusting configuration.")
-#         config.vision_config.model_type = "davit"  # Explicitne nastaviť DaViT
-# except Exception as e:
-#     print(f"Error loading configuration: {e}")
-#     exit(1)
-#
-# try:
-#     model = AutoModelForCausalLM.from_pretrained(
-#         "prithivMLmods/Florence-2-VLM-Doc-VQA",
-#         config=config,
-#         trust_remote_code=True
-#         , torch_dtype='auto').eval().cuda()
-#
-#     model = model.half()
-#     processor = AutoProcessor.from_pretrained("prithivMLmods/Florence-2-VLM-Doc-VQA", trust_remote_code=True)
-# except Exception as e:
-#     print(f"Error loading model or processor: {e}")
-#     exit(1)
 model= AutoModelForCausalLM.from_pretrained("microsoft/Florence-2-base-ft", trust_remote_code=True, torch_dtype='auto').eval().cuda()
 processor = AutoProcessor.from_pretrained("microsoft/Florence-2-base-ft", trust_remote_code=True)
 
-
-# try:
-#     config = AutoConfig.from_pretrained("microsoft/Florence-2-large", trust_remote_code=True)
-#     if config.vision_config.model_type != "davit":
-#         print("Warning: Model is not using DaViT as vision model. Adjusting configuration.")
-#         config.vision_config.model_type = "davit"  # Explicitne nastaviť DaViT
-# except Exception as e:
-#     print(f"Error loading configuration: {e}")
-#     exit(1)
-#
-# try:
-#     model = AutoModelForCausalLM.from_pretrained(
-#         "microsoft/Florence-2-large",
-#         config=config,
-#         trust_remote_code=True
-#         , torch_dtype='auto').eval().cuda()
-#
-#     model = model.half()
-#     processor = AutoProcessor.from_pretrained("microsoft/Florence-2-large", trust_remote_code=True)
-# except Exception as e:
-#     print(f"Error loading model or processor: {e}")
-#     exit(1)
-# Helper Functions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -193,60 +149,117 @@ def parse_bbox_and_labels(detokenized_output: str):
         labels.append(d['label'])
     return np.array(boxes), np.array(labels)
 
-
+#povodne
+# def plot_bbox_florence(image, data):
+#     fig, ax = plt.subplots()
+#
+#     # Display the image
+#     ax.imshow(image)
+#
+#     # Plot each bounding box
+#     for bbox, label in zip(data['bboxes'], data['labels']):
+#         # Unpack the bounding box coordinates
+#         x1, y1, x2, y2 = bbox
+#         # Create a Rectangle patch
+#         rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=1, edgecolor='r', facecolor='none')
+#         # Add the rectangle to the Axes
+#         ax.add_patch(rect)
+#         # Annotate the label
+#         plt.text(x1, y1, label, color='white', fontsize=8, bbox=dict(facecolor='red', alpha=0.5))
+#
+#
+#         # Uložte obrázok do adresára "static/uploads"
+#     output_path = os.path.join(app.config['UPLOAD_FOLDER'], "output_detect.png")
+#     plt.axis('off')  # Skryte osy
+#     plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
+#     plt.close(fig)
+#
+#     # Vytvorte správnu relatívnu cestu
+#     relative_path = os.path.relpath(output_path, start='static/')
+#     relative_path = relative_path.replace("\\", "/")  # Oprava spätného lomítka na predné
+#
+#     print(f"Output path (corrected): {relative_path}")
+#     return relative_path
+app.static_folder = "static"
+import uuid
 def plot_bbox_florence(image, data):
     fig, ax = plt.subplots()
-
-    # Display the image
     ax.imshow(image)
 
-    # Plot each bounding box
     for bbox, label in zip(data['bboxes'], data['labels']):
-        # Unpack the bounding box coordinates
         x1, y1, x2, y2 = bbox
-        # Create a Rectangle patch
         rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=1, edgecolor='r', facecolor='none')
-        # Add the rectangle to the Axes
         ax.add_patch(rect)
-        # Annotate the label
         plt.text(x1, y1, label, color='white', fontsize=8, bbox=dict(facecolor='red', alpha=0.5))
 
+    # Vytvorenie priečinka, ak neexistuje
+    detect_folder = os.path.join(app.static_folder, 'detect')
+    os.makedirs(detect_folder, exist_ok=True)
 
-        # Uložte obrázok do adresára "static/uploads"
-    output_path = os.path.join(app.config['UPLOAD_FOLDER'], "output_detect.png")
-    plt.axis('off')  # Skryte osy
+    # Generovanie unikátneho názvu súboru
+    unique_filename = f"detect_{uuid.uuid4().hex}.png"
+    output_path = os.path.join(detect_folder, unique_filename)
+
+    plt.axis('off')
     plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
     plt.close(fig)
 
-    # Vytvorte správnu relatívnu cestu
-    relative_path = os.path.relpath(output_path, start='static/')
-    relative_path = relative_path.replace("\\", "/")  # Oprava spätného lomítka na predné
+    # Relatívna cesta pre frontend
+    relative_path = f"/static/detect/{unique_filename}"
 
-    print(f"Output path (corrected): {relative_path}")
+    print(relative_path)
     return relative_path
 
 def display_boxes(image, boxes, labels):
-    width, height = paligemma_size
+    width, height = image.size  # Predpokladám, že image je PIL Image, získaš veľkosť obrázka priamo
     fig, ax = plt.subplots()
     ax.imshow(image)
+
+    # Nakreslíme bounding boxy a pridáme labely
     for i in range(boxes.shape[0]):
-        y0, x0, y1, x1 = boxes[i] * np.array([height, width, height, width])
+        y0, x0, y1, x1 = boxes[i] * np.array([height, width, height, width])  # Rozmerovanie boxov
         rect = patches.Rectangle((x0, y0), x1 - x0, y1 - y0, linewidth=2, edgecolor='r', facecolor='none')
         ax.add_patch(rect)
         ax.text(x0, y0, labels[i], color='red', fontsize=12, bbox=dict(facecolor='white', alpha=0.5))
 
-    # Uložte obrázok do adresára "static/uploads"
-    output_path = os.path.join(app.config['UPLOAD_FOLDER'], "output_detect.png")
-    plt.axis("off")
+    # Vytvoríme názov súboru s UUID
+    unique_filename = f"detect_{uuid.uuid4().hex}.png"
+    output_path = os.path.join('static', 'detect', unique_filename)
+
+    # Uložíme obrázok do static/detect
+    plt.axis("off")  # Skryjeme osi
     plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
     plt.close(fig)
-
-    # Vytvorte správnu relatívnu cestu (použijeme '/' namiesto '\\')
-    relative_path = os.path.relpath(output_path, start='static/')
-    relative_path = relative_path.replace("\\", "/")  # Oprava spätného lomítka na predné
+    relative_path = f"/static/detect/{unique_filename}"
+    # Vytvárame relatívnu cestu
+    # relative_path = os.path.relpath(output_path, start='static/')
+    # relative_path = relative_path.replace("\\", "/")  # Oprava spätného lomítka na predné
 
     print(f"Output path (corrected): {relative_path}")
     return relative_path
+
+# def display_boxes(image, boxes, labels):
+#     width, height = paligemma_size
+#     fig, ax = plt.subplots()
+#     ax.imshow(image)
+#     for i in range(boxes.shape[0]):
+#         y0, x0, y1, x1 = boxes[i] * np.array([height, width, height, width])
+#         rect = patches.Rectangle((x0, y0), x1 - x0, y1 - y0, linewidth=2, edgecolor='r', facecolor='none')
+#         ax.add_patch(rect)
+#         ax.text(x0, y0, labels[i], color='red', fontsize=12, bbox=dict(facecolor='white', alpha=0.5))
+#
+#     # Uložte obrázok do adresára "static/uploads"
+#     output_path = os.path.join(app.config['UPLOAD_FOLDER'], "output_detect.png")
+#     plt.axis("off")
+#     plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
+#     plt.close(fig)
+#
+#     # Vytvorte správnu relatívnu cestu (použijeme '/' namiesto '\\')
+#     relative_path = os.path.relpath(output_path, start='static/')
+#     relative_path = relative_path.replace("\\", "/")  # Oprava spätného lomítka na predné
+#
+#     print(f"Output path (corrected): {relative_path}")
+#     return relative_path
 
 def run_example(image, task_prompt, text_input=None):
     prompt = task_prompt if text_input is None else task_prompt + text_input
@@ -288,10 +301,46 @@ def run_exampleFT(image, task_prompt, text_input=None):
     )
     return parsed_answer
 
+# def process_video(video_path):
+#     cap = cv2.VideoCapture(video_path)
+#     frames = []
+#     frame_index = 0  # Počítadlo framov
+#
+#     while cap.isOpened():
+#         ret, frame = cap.read()
+#         if not ret:
+#             break  # Koniec videa
+#
+#         if frame_index % 30 == 0:  # Spracovať iba každý 30. frame
+#             processed_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+#             # results = run_example(processed_frame, '<CAPTION_TO_PHRASE_GROUNDING>', text_input="Gun.")
+#             # print("som v proccess video")
+#             # print(results)
+#             # print("------------------------------------------")
+#             frames.append(processed_frame)  # Uloženie spracovaného framu
+#
+#         frame_index += 1  # Zvýšenie počítadla framov
+#
+#     cap.release()
+#     return frames  # Vrátime iba vybrané framy
+
+import cv2
+from PIL import Image
+
+import cv2
+from PIL import Image
+
+
 def process_video(video_path):
     cap = cv2.VideoCapture(video_path)
     frames = []
-    frame_index = 0  # Počítadlo framov
+    timestamps = []
+    frame_indexes = []
+
+    fps = cap.get(cv2.CAP_PROP_FPS)  # FPS videa
+    print(f"FPS: {fps}")
+
+    frame_index = 0
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -299,17 +348,19 @@ def process_video(video_path):
             break  # Koniec videa
 
         if frame_index % 30 == 0:  # Spracovať iba každý 30. frame
-            processed_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            # results = run_example(processed_frame, '<CAPTION_TO_PHRASE_GROUNDING>', text_input="Gun.")
-            # print("som v proccess video")
-            # print(results)
-            # print("------------------------------------------")
-            frames.append(processed_frame)  # Uloženie spracovaného framu
+            # Presný časový výpočet z milisekúnd
+            time_in_milliseconds = cap.get(cv2.CAP_PROP_POS_MSEC)  # Získa čas v milisekundách
+            time_in_seconds = time_in_milliseconds / 1000.0  # Prevod na sekundy
 
-        frame_index += 1  # Zvýšenie počítadla framov
+            processed_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            frames.append(processed_frame)
+            timestamps.append(round(time_in_seconds, 3))  # Zaokrúhlenie na 3 desatinné miesta
+            frame_indexes.append(frame_index)
+
+        frame_index += 1
 
     cap.release()
-    return frames  # Vrátime iba vybrané framy
+    return frames, timestamps, frame_indexes
 
 
 # def process_video(video_path):
@@ -345,12 +396,7 @@ def run_paligemma_timeline(image, prompt):
     input_len = model_inputs["input_ids"].shape[-1]
     generation = paligemma_model.generate(**model_inputs, max_new_tokens=100, do_sample=False,num_beams=3)
     decoded = paligemma_processor.decode(generation[0][input_len:], skip_special_tokens=False)
-    # # print(f"Decoded: {decoded}")
-    # if "detect" in prompt.lower():
-    #     boxes, labels = parse_bbox_and_labels(decoded)
-    #     output_path = display_boxes(image, boxes, labels)
-    #     return output_path
-    # else:
+
     return  decoded
 def classify_text(text):
     from transformers import pipeline
@@ -358,7 +404,7 @@ def classify_text(text):
     classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli", framework="pt")
 
     sequence = (text)
-    candidate_labels = ["FALL", "GRAB", "GUN", "HIT", "KICK", "LYING DOWN", "RUN" ,"SIT", "STAND", "SNEAK", "STRUGGLE", "THROW", "WALK" ]
+    candidate_labels = ["FALL", "GRAB", "GUN", "HIT", "KICK", "LYING DOWN", "RUN" ,"SIT", "STAND", "SNEAK", "STRUGGLE", "THROW", "WALK", "ARREST"]
 
 
     result = classifier(sequence, candidate_labels=candidate_labels)
@@ -368,8 +414,8 @@ def classify_text(text):
 def classify_frames(frames):
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    labels = ["fight", "sit", "stand", "run", "gun",
-              "walk", "robbery", "fall", "lying down", "arrest", "arson"]
+    labels = ["FALL", "GRAB", "GUN", "HIT", "KICK", "LYING DOWN", "RUN" ,"SIT", "STAND", "SNEAK", "STRUGGLE", "THROW", "WALK", "ARREST"]
+
     scores = {label: [] for label in labels}  # Slovník na ukladanie skóre
 
     for image in frames:
@@ -640,6 +686,7 @@ def check_VQA_timeline(outputs):
 
 @app.route('/detection/threat', methods=['GET', 'POST'])
 def threat():
+    global avg_scores, final_label, frame_index, times, scores
     result_video = None
     filename = None
     model = None
@@ -655,7 +702,18 @@ def threat():
     prompt_type = None
     prompt_text = None
     all_timelines_prompt = []
+    frame_results_with_time = []
+    times_all = []
     timeline_all=[]
+    answers = []
+    all_range = []
+    detect = []
+    answer = []
+    avg_scores = []
+    show_button = False
+    images = []
+    frame_indexes = []
+    times_indexes = []
     if request.method == 'POST':
         if 'file' in request.files:
             file = request.files['file']
@@ -691,13 +749,22 @@ def threat():
                     prompt_results.append(result)
 
                 elif filename.lower().endswith(('.mp4', '.mov', '.avi')):
-                    frames = process_video(file_path)
+                    frames, times, frame_index = process_video(file_path)
+                    times_all.append(times * prompt_count)
+                    print(times)
+                    print(frame_index)
                     for frame in frames:
                         if model == "paligemma":
+                            scores = classify_frames(frames)
+                            # final_label, avg_scores = get_final_label(scores)
                             prompt = f"<image> <bos>{prompt_type}: {prompt_text}"
                             if prompt_type == "detect":
                                 result = run_paligemma_timeline(frame, prompt)
                                 # print("paligemma detect from video")
+                                boxes, labels = parse_bbox_and_labels(result)
+                                output_path = display_boxes(frame, boxes, labels)
+                                images.append(output_path)
+                                print(output_path)
                                 result_video = check_for_location_tag(result)
                                 print(result_video)
                                 classify.append((prompt_type,prompt_text,result_video))
@@ -711,15 +778,17 @@ def threat():
                         elif model == "florence2":
                             # prompt = f"{prompt_type} + {prompt_text}" if prompt_type == "VQA" and "CAPTION_TO_PHRASE_GROUNDING" else f"{prompt_type}"
                             scores = classify_frames(frames)
-
-                            # Výpočet finálnej kategórie pre celé video
-                            final_label, avg_scores = get_final_label(scores)
+                            # final_label, avg_scores = get_final_label(scores)
                             if prompt_type == "CAPTION_TO_PHRASE_GROUNDING":
                                 # result = run_example(frame, prompt_type, prompt_text)
                                 result = run_example(frame, '<CAPTION_TO_PHRASE_GROUNDING>', text_input=prompt_text)
                                 # print(result)
+                                output_path = plot_bbox_florence(frame, result['<CAPTION_TO_PHRASE_GROUNDING>'])
+                                print(output_path)
+                                images.append(output_path)
                                 result_video = check_for_location_tag_florence(result)
                                 print(result_video)
+                                answers.append((prompt_type, prompt_text,result_video))
                                 classify.append((prompt_type, prompt_text, result_video))
                             elif prompt_type == "VQA":
                                 result = predict(frame, prompt_text)
@@ -742,35 +811,36 @@ def threat():
                                 print("som tu caoption")
                                 print(result_video)
                                 classify.append((prompt_type, prompt_text, result_video))
-                            # else:
-                            #     result_video = run_example(frame, '<MORE_DETAILED_CAPTION>', text_input=prompt_text)
-                            #     print("som tu MORE")
-                            #     print(result_video)
-                            #     classify.append((prompt_type, prompt_text, result_video))
                         elif model == "paligemmaft":
+                            scores = classify_frames(frames)
+                            # final_label, avg_scores = get_final_label(scores)
                             prompt = f"<image> <bos>{prompt_type}: {prompt_text}"
                             if prompt_type == "detect":
                                 result = run_paligemmaFT_timeline(frame, prompt)
+                                boxes, labels = parse_bbox_and_labels(result)
+                                output_path = display_boxes(frame, boxes, labels)
+                                print(output_path)
+                                images.append(output_path)
                                 # print("paligemma detect from video")
                                 result_video = check_for_location_tag(result)
                                 print(result_video)
                                 classify.append((prompt_type, prompt_text, result_video))
                             else:
                                 result_video = run_paligemmaFT_timeline(frame, prompt)
-                                print(result_video)
                                 result_video = result_video.replace("<eos>", "").strip()
                                 print(result_video)
                                 classify.append((prompt_type, prompt_text, result_video))
                         elif model == "florence2ft":
                             # prompt = f"{prompt_type} + {prompt_text}" if prompt_type == "VQA" and "CAPTION_TO_PHRASE_GROUNDING" else f"{prompt_type}"
                             scores = classify_frames(frames)
-
-                            # Výpočet finálnej kategórie pre celé video
-                            final_label, avg_scores = get_final_label(scores)
+                            # final_label, avg_scores = get_final_label(scores)
                             if prompt_type == "CAPTION_TO_PHRASE_GROUNDING":
                                 # result = run_example(frame, prompt_type, prompt_text)
                                 result = run_exampleFT(frame, '<CAPTION_TO_PHRASE_GROUNDING>', text_input=prompt_text)
                                 # print(result)
+                                output_path = plot_bbox_florence(frame, result['<CAPTION_TO_PHRASE_GROUNDING>'])
+                                print(output_path)
+                                images.append(output_path)
                                 result_video = check_for_location_tag_florence(result)
                                 print(result_video)
                                 classify.append((prompt_type, prompt_text, result_video))
@@ -810,14 +880,24 @@ def threat():
                         else:
                             print("som v else")
                             frame_results.append(result_video)
+                    print("all frame")
+                    print(frame_results)
 
-                    print(time_line)
+                session["frame_index"] = frame_index
+                session["timestamp"] = times
 
-                            # TODO: este vyskusat aj timeline inak good dobre...odskusane funguje dobre
+                for idx, time in enumerate(times_all):  # Prvý index a čas v zozname times_all
+
+                    # Vytvorí dvojice (frame_result, time) medzi frame_results a aktuálnym časom
+                    frame_results_with_time = list(zip(frame_results, time))
+                    # print(frame_results_with_time)
+
 
                             # time_line.append(result_video)  # Uložíme výsledky pre daný prompt
                         # Po všetkých promptoch (pre obraz alebo video) vygenerujeme text
 
+                if prompt_type in ["detect", "CAPTION_TO_PHRASE_GROUNDING"]:
+                    show_button = True
 
                 # Ak máme dáta na vykreslenie, vytvoríme obrázok pre tento prompt
                 if time_line:
@@ -831,23 +911,38 @@ def threat():
                         prompt_type = "Detect"
                     timeline_prompts.append((prompt_type, prompt_text))
                     all_timelines_prompt = list(zip(timeline_images, timeline_prompts))
+
                 prompt_count += 1
             result_string = " ".join([f"{prompt_type} {prompt_text} {result_video}" for
                                       prompt_type, prompt_text, result_video in classify])
             # print(result_string)  # Môžeš si vypísať, ako vyzerá konečný reťazec
             # classify_text(result_string)  # Uložíme alebo zobrazíme výsledný text
-            all_classify.append(classify_text(result_string))
-            print("\n🔹 **Globálna predikcia pre video:**")
-            for label, score in avg_scores.items():
-                print(f"{label}: {score:.4f}")
+            selected_option = request.form.get("flexRadioDefault")  # Získa hodnotu vybraného tlačidla
 
-            print(f"\n✅ **Najpravdepodobnejší label pre video:** {final_label}")
+            print(selected_option)
+            if selected_option == "flexRadioClip":
+                final_label, avg_scores = get_final_label(scores)
+                # Ak je zaškrtnutý, vykonáme nejakú akciu
+                print("CLIP")
+                print("\n🔹 **Globálna predikcia pre video:**")
+                print(avg_scores)
+                avg_scores = dict(sorted(avg_scores.items(), key=lambda item: item[1], reverse=True))
+                print(avg_scores)
+            elif selected_option == "flexRadioBart":
+                print("BART")
+                all_classify.append(classify_text(result_string))
+
+
+        # image_path = "static/uploads/output_detect.png"  # Cesta k obrázku
+
+        session["image_path"] = images  # Uložíme cestu do session
+
+
         if all_timelines:
             print("som tu")
             combined_timeline = merge_timelines(all_timelines)  # Spojenie osí
             img_combined = visualize_combined_timeline(combined_timeline)
             timeline_all.append(url_for('static', filename=f'results/{img_combined}'))  # Odošleme na frontend
-
 
     return render_template('threat.html',
                            filename=filename,
@@ -859,7 +954,11 @@ def threat():
                            timeline_all=timeline_all,
                            all_timelines_prompt=all_timelines_prompt,
                            all_classify=all_classify,
-                           result_vqa=result_vqa
+                           result_vqa=result_vqa,
+                           times_all=times_all,
+                           frame_results_with_time=frame_results_with_time,
+                           avg_scores=avg_scores,
+                           show_button=show_button,
                            )
 
 
@@ -908,7 +1007,18 @@ def visualize_combined_timeline(combined_timeline):
 
 #TODO: funguje vsetko, zisti na inom videu preco nevyhodnocuje spravne
 
-
+@app.route("/detection-results")
+def detection_results():
+    # Získame cestu k obrázku zo session
+    image_path = session.get("image_path", [])  # Ak neexistuje, vráti None
+    frame_indexes = session.get("frame_index", [])
+    time_indexes = session.get("timestamp", [])
+    print(image_path, frame_indexes, time_indexes)
+    combined_data = zip(image_path, time_indexes, frame_indexes)
+    if image_path:
+        return render_template("detection_result.html", combined_data=combined_data)  # Pošleme cestu do HTML
+    else:
+        return "No image found!"
 
 
 # @app.route('/detection/threat', methods=['GET', 'POST'])
@@ -1033,6 +1143,15 @@ def visualize_combined_timeline(combined_timeline):
 #     return render_template('index.html', filename=filename, result=result, model=model, frame_results=frame_results,
 #                            prompt_text=prompt_text)
 
+
+def clear_detect_folder():
+    detect_folder = os.path.join("static", "detect")
+    if os.path.exists(detect_folder):
+        shutil.rmtree(detect_folder)  # Vymaže celý priečinok
+    os.makedirs(detect_folder, exist_ok=True)  # Znova ho vytvorí
+
+# Pred spustením aplikácie vymažeme staré súbory
+clear_detect_folder()
 
 if __name__ == '__main__':
     app.run(debug=False)

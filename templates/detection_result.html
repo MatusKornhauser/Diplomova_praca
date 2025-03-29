@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Results</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+        <div class="container my-5">
+            <div class="row">
+                <div class="col-md-15">
+                    <h1 class="mb-4">Detection Results</h1>
+                    {% if combined_data %}
+                        <div class="row">
+                            {% for image, timestamp, frame in combined_data %}
+                                <div class="col-md-4 mb-3"> <!-- Adjust the column size here -->
+                                    <div class="card">
+                                        <img src="{{ image }}" class="card-img-top" alt="Detection Image">
+                                        <div class="card-body">
+                                            <p class="card-text">Time: {{ timestamp }} seconds, Frame: {{ frame }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p>No images found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+
+    <!-- Bootstrap JS and Popper.js -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
