@@ -6,8 +6,7 @@ jazyku Python. Práca je vyhotovená na Fakulte elektrotechniky a informatiky v
 Bratislave.
 
 Inštalácia
-1. Stiahnite repozitár z verejného úložiska: https://github.com/MatusKornhaus
-er/Diplomova_praca
+1. Stiahnite repozitár.
 2. Nainštalujte všetky potrebné knižnice príkazom:
 pip install -r requirements.txt
 3. Na prístup k modelom z Hugging Face je potrebné mať Hugging Face API key.
