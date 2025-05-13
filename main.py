@@ -36,18 +36,6 @@ from transformers import AutoConfig, AutoModelForCausalLM
 import torch
 from transformers import AutoProcessor
 
-# Determine if a GPU is available and set the device accordingly
-# device_VQA = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#
-# config_VQA = AutoConfig.from_pretrained("microsoft/Florence-2-large", trust_remote_code=True)
-#
-# model_VQA  = AutoModelForCausalLM.from_pretrained(
-#     "microsoft/Florence-2-large",
-#     config=config_VQA,
-#     trust_remote_code=True
-# ).to(device_VQA)
-# # VivekChauhan06/Florence-2-FT-OK-VQA  "fauzail/Florence-2-VQA",
-# processor_VQA  = AutoProcessor.from_pretrained("microsoft/Florence-2-large", trust_remote_code=True)
 
 def predict(image, question):
     # Predpokladám, že 'processor' a 'model' sú už nainštalované a pripravené
@@ -86,19 +74,6 @@ processor = AutoProcessor.from_pretrained("microsoft/Florence-2-base-ft", trust_
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# def process_image(image_path):
-#     image = Image.open(image_path).convert("RGB")
-#     width, height = image.size
-#     crop_percentage = 0.8
-#     new_width = int(width * crop_percentage)
-#     new_height = int(height * crop_percentage)
-#     start_x = (width - new_width) // 2
-#     start_y = (height - new_height) // 2
-#     cropped_image = image.crop((start_x, start_y, start_x + new_width, start_y + new_height))
-#     cropped_image = cropped_image.resize(paligemma_size)
-#     return np.array(cropped_image)
-
-
 def process_image(image):
     # image = Image.open(image_path).convert("RGB")
     width, height = image.size
@@ -130,21 +105,6 @@ def process_image_video(frame):
     if image.shape[2] == 4:
         image = image[:, :, :3]
     return image
-
-# def process_image_video(frame):
-#     image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-#     width, height = image.size
-#     crop_percentage = 0.7
-#     new_width = int(width * crop_percentage)
-#     new_height = int(height * crop_percentage)
-#     start_x = (width - new_width) // 2
-#     start_y = (height - new_height) // 2
-#     cropped_image = image.crop((start_x, start_y, start_x + new_width, start_y + new_height))
-#     resized_image = cropped_image.resize((224,224))
-#     image = np.array(resized_image)
-#     if image.shape[2] == 4:
-#         image = image[:, :, :3]
-#     return image
 
 
 # Funkcia na vytvorenie obrázka časovej osi pre daný prompt
@@ -184,37 +144,7 @@ def parse_bbox_and_labels(detokenized_output: str):
         labels.append(d['label'])
     return np.array(boxes), np.array(labels)
 
-#povodne
-# def plot_bbox_florence(image, data):
-#     fig, ax = plt.subplots()
-#
-#     # Display the image
-#     ax.imshow(image)
-#
-#     # Plot each bounding box
-#     for bbox, label in zip(data['bboxes'], data['labels']):
-#         # Unpack the bounding box coordinates
-#         x1, y1, x2, y2 = bbox
-#         # Create a Rectangle patch
-#         rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=1, edgecolor='r', facecolor='none')
-#         # Add the rectangle to the Axes
-#         ax.add_patch(rect)
-#         # Annotate the label
-#         plt.text(x1, y1, label, color='white', fontsize=8, bbox=dict(facecolor='red', alpha=0.5))
-#
-#
-#         # Uložte obrázok do adresára "static/uploads"
-#     output_path = os.path.join(app.config['UPLOAD_FOLDER'], "output_detect.png")
-#     plt.axis('off')  # Skryte osy
-#     plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
-#     plt.close(fig)
-#
-#     # Vytvorte správnu relatívnu cestu
-#     relative_path = os.path.relpath(output_path, start='static/')
-#     relative_path = relative_path.replace("\\", "/")  # Oprava spätného lomítka na predné
-#
-#     print(f"Output path (corrected): {relative_path}")
-#     return relative_path
+
 app.static_folder = "static"
 import uuid
 def plot_bbox_florence(image, data):
