@@ -1,6 +1,4 @@
 
-
-<!--TOTO OBSAHUJE UZ VSETKO CO MA MAT STRANKA-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -158,13 +156,15 @@
                         <option value="paligemmaft">PaliGemmaFT</option>
                     </select>
 
+
                     <div id="prompts-container">
                         <div class="mb-3">
                             <label for="prompt_type-1" class="form-label">Choose Prompt Type:</label>
-                            <select id="prompt_type-1" name="prompt_type-1" class="form-select" required></select>
+                            <select id="prompt_type-1" name="prompt_type-1" class="form-select" required>
+                            </select>
                         </div>
 
-                        <div class="mb-3">
+                        <div class="mb-3" id="prompt-text-group">
                             <label for="prompt_text-1" class="form-label">Enter Prompt Text:</label>
                             <input type="text" id="prompt_text-1" name="prompt_text-1" class="form-control">
                         </div>
@@ -195,7 +195,7 @@
                     <button class="btn btn-primary w-100" id="submit-button" type="submit" {% if not filename %} disabled {% endif %}>Submit</button>
 
                     <div id="loading-message" class="alert alert-info text-center mt-3" style="display: none;">
-                        Pracujeme na identifikácii zločinu...
+                        We're working on identifying the crime...
                     </div>
                 </form>
                 {% if error %}
@@ -212,7 +212,27 @@
                                 <li class="list-group-item">Prompt: {{prompt_type}}: {{result_video}}</li>
                             {% endfor %}
                         </ul>
+                    {% elif model == "paligemmaft"%}
+                        <ul class="list-group">
+                            {% for prompt_type, result_video in image_process_all %}
+                                <li class="list-group-item">Prompt: {{prompt_type}}: {{result_video}}</li>
+                            {% endfor %}
+                        </ul>
                     {% elif model == "florence2" %}
+                        <ul class="list-group">
+                            {% for prompt_type, result_video in image_process_all %}
+                                {% if result_video is string %}
+                                    <li class="list-group-item">Prompt: {{ prompt_type }} - {{ result_video }}</li>
+                                {% else %}
+                                    {% if result_video.get('\u003cCAPTION\u003e') %}
+                                        <li class="list-group-item">Prompt: {{prompt_type}} - {{ result_video.get('\u003cCAPTION\u003e') }}</li>
+                                    {% elif result_video.get('\u003cMORE_DETAILED_CAPTION\u003e') %}
+                                        <li class="list-group-item">Prompt: {{ prompt_type}} - {{ result_video.get('\u003cMORE_DETAILED_CAPTION\u003e') }}</li>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    {% elif model == "florence2ft" %}
                         <ul class="list-group">
                             {% for prompt_type, result_video in image_process_all %}
                                 {% if result_video is string %}
@@ -250,7 +270,7 @@
                         <ul class="list-group">
                             {% for result, time in frame_results_with_time %}
                                 {% if result.get('\u003cCAPTION\u003e') %}
-                                    <li class="list-group-item">Time: {{ time | round(2) }}s - {{ result.get('\u003cCAPTION\u003e') }}<</li>
+                                    <li class="list-group-item">Time: {{ time | round(2) }}s - {{ result.get('\u003cCAPTION\u003e') }}</li>
                                 {% elif result.get('<VQA>') == prompt_text %}
                                     <li class="list-group-item">Time: {{ time | round(2) }}s{{ result.get('<VQA>') | e }}</li>
                                 {% elif result.get('\u003cOD\u003e') %}
@@ -526,59 +546,25 @@
         // Inicializácia všetkých čiar
         updateAllLines(0);
     </script>
+    <script>
+        const promptTypeSelect = document.getElementById('prompt_type-1');
+        const promptTextGroup = document.getElementById('prompt-text-group');
 
-<!--    <script>-->
-<!--        document.querySelectorAll('.range-container').forEach(container => {-->
-<!--            const rangeInput = container.querySelector('.video-range');-->
-<!--            const verticalLine = container.querySelector('.vertical-line');-->
+        function togglePromptText() {
+            const selected = promptTypeSelect.value;
+            if (selected === 'detect' || selected === 'answer' || selected === 'VQA' || selected === 'CAPTION_TO_PHRASE_GROUNDING') {
+                promptTextGroup.style.display = 'block';
+            } else {
+                promptTextGroup.style.display = 'none';
+            }
+        }
 
-<!--            function updateLinePosition() {-->
-<!--                const min = parseInt(rangeInput.min);-->
-<!--                const max = parseInt(rangeInput.max);-->
-<!--                const val = parseInt(rangeInput.value);-->
+        // Initial check
+        togglePromptText();
 
-<!--                const percent = (val - min) / (max - min);-->
-<!--                const sliderWidth = rangeInput.clientWidth;-->
-<!--                const thumbWidth = 20;-->
-
-<!--                const position = percent * (sliderWidth - thumbWidth) + (thumbWidth / 2);-->
-<!--                verticalLine.style.left = `${position}px`;-->
-<!--            }-->
-
-<!--            rangeInput.addEventListener("input", updateLinePosition);-->
-<!--            updateLinePosition(); // Inicializuj pozíciu-->
-<!--        });-->
-<!--    </script>-->
-
-
-<!--    <script>-->
-<!--        const rangeInput = document.getElementById("video-range");-->
-<!--        const verticalLine = document.getElementById("verticalLine");-->
-
-<!--        function updateLinePosition() {-->
-<!--            const min = rangeInput.min;-->
-<!--            const max = rangeInput.max;-->
-<!--            const val = rangeInput.value;-->
-
-<!--            // Získanie percentuálnej hodnoty slidera-->
-<!--            const percent = (val - min) / (max - min);-->
-<!--            const sliderWidth = rangeInput.clientWidth;-->
-<!--            const thumbWidth = 20; // Približná šírka palca-->
-
-<!--            // Vypočítanie pozície čiary pod sliderom-->
-<!--            const position = percent * (sliderWidth - thumbWidth) + (thumbWidth / 2);-->
-<!--            verticalLine.style.left = `${position}px`;-->
-<!--        }-->
-
-<!--        // Aktualizácia pri pohybe slidera-->
-<!--        rangeInput.addEventListener("input", updateLinePosition);-->
-
-<!--        // Počiatočná pozícia čiary-->
-<!--        updateLinePosition();-->
-<!--    </script>-->
-
-
-
+        // Listen for changes
+        promptTypeSelect.addEventListener('change', togglePromptText);
+    </script>
 
 </body>
 </html>
