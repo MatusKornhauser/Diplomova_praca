@@ -18,7 +18,7 @@ huggingface-cli login
 Florence-2: https://huggingface.co/microsoft/Florence-2-large
 PaliGemma: https://huggingface.co/google/paligemma-3b-pt-224
 5. Spustite Flask aplikáciu v konzole:
-python app.py
+python main.py
 6. Aplikácia sa otvorí vo webovom prehliadači.
 
 Používanie systému
