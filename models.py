@@ -6,16 +6,16 @@ from transformers import AutoProcessor as PaliProcessor, PaliGemmaForConditional
 
 
 paligemma_model = PaliGemmaForConditionalGeneration.from_pretrained(
-    "paligemma", torch_dtype=torch.bfloat16, device_map="cuda:0", revision="bfloat16"
+    "google/paligemma-3b-pt-224", torch_dtype=torch.bfloat16, device_map="cuda:0", revision="bfloat16"
 ).eval()
-paligemma_processor = PaliProcessor.from_pretrained("paligemma")
+paligemma_processor = PaliProcessor.from_pretrained("google/paligemma-3b-pt-224")
 paligemma_size = (224, 224)
 
 #paligemma ft setup
 paligemmaFT_model = PaliGemmaForConditionalGeneration.from_pretrained(
-    "paligemma", torch_dtype=torch.bfloat16, device_map="cuda:0", revision="bfloat16"
+    "google/paligemma-3b-pt-224", torch_dtype=torch.bfloat16, device_map="cuda:0", revision="bfloat16"
 ).eval()
-paligemmaFT_processor = PaliProcessor.from_pretrained("paligemma")
+paligemmaFT_processor = PaliProcessor.from_pretrained("google/paligemma-3b-pt-224")
 MODEL_PATH = "paligemma-weights.pth"  # Tvoj súbor
 paligemmaFT_model.load_state_dict(torch.load("paligemma-weights.pth"), strict=False)
 

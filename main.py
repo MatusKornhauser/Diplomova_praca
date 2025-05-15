@@ -448,7 +448,7 @@ def threat():
                         frame = read_image(file_path)
                         if model == "paligemma":
                             frame = process_image(frame)
-                            prompt = f"{prompt_type}: {prompt_text}"
+                            prompt = f"{prompt_type}: {prompt_text} en"
                             scores = classify_frame(frame)
                             # result = run_paligemma_timeline(image, prompt)
                             if prompt_type == "detect":
@@ -517,7 +517,7 @@ def threat():
                                 result_image.append(result_video)
                         elif model == "paligemmaft":
                             frame = process_image(frame)
-                            prompt = f"{prompt_type}: {prompt_text}"
+                            prompt = f"{prompt_type}: {prompt_text} en"
                             scores = classify_frame(frame)
                             # result = run_paligemma_timeline(image, prompt)
                             if prompt_type == "detect":
@@ -600,7 +600,7 @@ def threat():
                             if model == "paligemma":
                                 scores = classify_frames(frames)
                                 # final_label, avg_scores = get_final_label(scores)
-                                prompt = f"<image> <bos>{prompt_type}: {prompt_text}"
+                                prompt = f"<image> <bos>{prompt_type}: {prompt_text} en"
                                 if prompt_type == "detect":
                                     result = run_paligemma_timeline(frame, prompt)
                                     # print("paligemma detect from video")
@@ -657,7 +657,7 @@ def threat():
                             elif model == "paligemmaft":
                                 scores = classify_frames(frames)
                                 # final_label, avg_scores = get_final_label(scores)
-                                prompt = f"<image> <bos>{prompt_type}: {prompt_text}"
+                                prompt = f"<image> <bos>{prompt_type}: {prompt_text} en"
                                 if prompt_type == "detect":
                                     result = run_paligemmaFT_timeline(frame, prompt)
                                     boxes, labels = parse_bbox_and_labels(result)
